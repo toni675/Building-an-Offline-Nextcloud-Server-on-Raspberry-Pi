@@ -1,0 +1,6 @@
+[Unit]
+Description=Daily System Integrity Check
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/integrity-check.sh
