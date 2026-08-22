@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CRYPT_NAME="nextcloud_crypt"
+UUID="YOUR UUID"
+MOUNT_POINT="/srv/nextcloud-data"
+
+DEVICE="/dev/disk/by-uuid/$UUID"
+
+echo "Locating encrypted device..."
+if [ ! -e "$DEVICE" ]; then
+    echo "Encrypted device not found."
+    exit 1
+fi
+
+echo "Opening encrypted container..."
+sudo cryptsetup open "$DEVICE" "$CRYPT_NAME"
+
+if [ $? -ne 0 ]; then
+    echo "Failed to unlock the encrypted drive."
+    exit 1
+fi
+
+if mount | grep -q "$MOUNT_POINT"; then
+    echo "Already mounted."
+    exit 0
+fi
+
+
+echo "Mounting filesystem..."
+
+sudo mount /dev/mapper/"$CRYPT_NAME" "$MOUNT_POINT"
+
+if [ $? -ne 0 ]; then
+    echo "Failed to mount the filesystem."
+    exit 1
+fi
+
+echo "Drive successfully mounted at $MOUNT_POINT"
