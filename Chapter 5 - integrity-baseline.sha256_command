@@ -1,0 +1,38 @@
+sudo bash -c 'rm -f /root/integrity-baseline.sha256
+
+# Hash individual critical files
+for file in \
+  /etc/passwd \
+  /etc/shadow \
+  /etc/group \
+  /etc/ssh/sshd_config \
+  /etc/default/ufw \
+  /etc/nftables.conf \
+  /etc/sudoers \
+  /etc/crontab \
+  /boot/cmdline.txt \
+  /boot/config.txt \
+  /etc/sysctl.conf \
+  /usr/local/bin/pi-internet-control; do
+    [ -f "$file" ] && sha256sum "$file" >> /root/integrity-baseline.sha256
+done
+
+# Hash all files inside directories recursively
+for dir in \
+  /etc/ssh \
+  /etc/ufw \
+  /etc/sudoers.d \
+  /etc/pam.d \
+  /etc/systemd/network \
+  /etc/systemd/system \
+  /lib/systemd/system \
+  /etc/cron.d \
+  /var/spool/cron \
+  /etc/sysctl.d; do
+    [ -d "$dir" ] && find "$dir" -type f -exec sha256sum {} \; >> /root/integrity-baseline.sha256
+done
+
+# Hash optional system files if they exist
+for file in /etc/hosts /etc/resolv.conf /etc/hostname; do
+    [ -f "$file" ] && sha256sum "$file" >> /root/integrity-baseline.sha256
+done'
