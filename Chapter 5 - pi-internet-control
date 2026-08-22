@@ -1,0 +1,230 @@
+#!/usr/bin/env bash
+
+#
+# /usr/local/bin/pi-internet-control
+#
+# Controls Internet access through eth0 without bringing
+# the Ethernet interface down.
+#
+# enable  -> restore the DHCP-provided default route
+# disable -> remove the default route
+# status  -> show current eth0 and routing state
+#
+# Requires sudo/root.
+#
+
+set -u
+
+IFACE="eth0"
+
+
+############################################################
+# Require root
+############################################################
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "ERROR: run with sudo."
+    echo
+    echo "Usage:"
+    echo "  sudo $0 enable"
+    echo "  sudo $0 disable"
+    echo "  sudo $0 status"
+    exit 2
+fi
+
+
+############################################################
+# Find DHCP gateway
+############################################################
+
+get_gateway() {
+
+    ip -4 route show dev "$IFACE" proto dhcp \
+        | awk '$1 != "default" && $1 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ {
+            print $1
+            exit
+        }'
+
+}
+
+
+############################################################
+# Enable Internet
+############################################################
+
+enable_eth0() {
+
+    echo "Enabling Internet on $IFACE..."
+
+    # eth0 must remain UP.
+    ip link set "$IFACE" up
+
+    ########################################################
+    # Check whether a default route already exists.
+    ########################################################
+
+    if ip -4 route show default dev "$IFACE" | grep -q '^default'; then
+
+        echo
+        echo "Default route already exists."
+        echo "Internet is ENABLED."
+        echo
+        ip -4 addr show "$IFACE"
+        echo
+        ip route
+
+        return 0
+    fi
+
+
+    ########################################################
+    # Find the DHCP-provided gateway.
+    ########################################################
+
+    GATEWAY="$(get_gateway)"
+
+    if [ -z "$GATEWAY" ]; then
+
+        echo
+        echo "ERROR: no DHCP gateway is available on $IFACE."
+        echo
+        echo "The interface may have an IPv4 address,"
+        echo "but DHCP has not provided a gateway."
+        echo
+        ip -4 addr show "$IFACE"
+        echo
+        ip route
+
+        return 1
+    fi
+
+
+    ########################################################
+    # Restore the default route.
+    ########################################################
+
+    echo "Restoring default route via $GATEWAY..."
+
+    ip -4 route add default via "$GATEWAY" dev "$IFACE" metric 1024
+
+
+    ########################################################
+    # Verify.
+    ########################################################
+
+    if ip -4 route show default dev "$IFACE" | grep -q '^default'; then
+
+        echo
+        echo "Internet is ENABLED."
+        echo
+        ip -4 addr show "$IFACE"
+        echo
+        ip route
+
+        return 0
+
+    else
+
+        echo
+        echo "ERROR: failed to restore the default route."
+        echo
+        ip route
+
+        return 1
+    fi
+}
+
+
+############################################################
+# Disable Internet
+############################################################
+
+disable_eth0() {
+
+    echo "Disabling Internet on $IFACE..."
+
+    ########################################################
+    # Remove only the default route.
+    #
+    # eth0 remains UP.
+    # DHCP lease remains active.
+    # IPv4 address remains active.
+    ########################################################
+
+    ip -4 route del default dev "$IFACE" 2>/dev/null || true
+
+    echo
+    echo "Internet is DISABLED."
+    echo "eth0 remains UP."
+    echo
+    ip -4 addr show "$IFACE"
+    echo
+    ip route
+}
+
+
+############################################################
+# Status
+############################################################
+
+status_eth0() {
+
+    echo "========== eth0 =========="
+
+    ip link show "$IFACE"
+
+    echo
+    echo "========== IPv4 =========="
+
+    ip -4 addr show "$IFACE"
+
+    echo
+    echo "========== Routes =========="
+
+    ip route
+
+    echo
+
+    if ip link show "$IFACE" | grep -q "UP" &&
+       ip -4 addr show "$IFACE" | grep -q "inet " &&
+       ip -4 route show default dev "$IFACE" | grep -q '^default'; then
+
+        echo "Internet: ENABLED"
+
+    else
+
+        echo "Internet: DISABLED"
+
+    fi
+}
+
+
+############################################################
+# Command
+############################################################
+
+case "${1:-}" in
+
+    enable)
+        enable_eth0
+        ;;
+
+    disable)
+        disable_eth0
+        ;;
+
+    status)
+        status_eth0
+        ;;
+
+    *)
+        echo
+        echo "Usage:"
+        echo "  sudo $0 enable"
+        echo "  sudo $0 disable"
+        echo "  sudo $0 status"
+        echo
+        exit 1
+        ;;
+
+esac
