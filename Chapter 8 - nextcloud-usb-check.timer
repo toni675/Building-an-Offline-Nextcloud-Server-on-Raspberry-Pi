@@ -1,0 +1,11 @@
+[Unit]
+Description=Nextcloud USB Security Verification
+After=local-fs.target
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+Unit=nextcloud-usb-check.service
+
+[Install]
+WantedBy=timers.target
