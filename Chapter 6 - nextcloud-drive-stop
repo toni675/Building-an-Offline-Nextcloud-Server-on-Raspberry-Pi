@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CRYPT_NAME="nextcloud_crypt"
+MOUNT_POINT="/srv/nextcloud-data"
+
+echo "Unmounting filesystem..."
+sudo umount "$MOUNT_POINT"
+
+echo "Closing encrypted container..."
+sudo cryptsetup close "$CRYPT_NAME"
+
+echo "Drive successfully unmounted and locked."
