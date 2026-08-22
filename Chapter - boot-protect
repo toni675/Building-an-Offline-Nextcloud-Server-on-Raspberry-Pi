@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# /usr/local/bin/boot-protect
+# Manage /boot mount protection: lock | unlock | status
+
+BOOT_MOUNT="/boot/firmware"
+
+require_root() {
+  if [ "$(id -u)" -ne 0 ]; then
+    echo "ERROR: run with sudo." >&2
+    exit 1
+  fi
+}
+
+status() {
+  findmnt -n -o OPTIONS --target "$BOOT_MOUNT" | grep -q rw && echo "rw" || echo "ro"
+}
+
+case "$1" in
+  lock)
+    require_root
+    mount -o remount,ro "$BOOT_MOUNT"
+    echo "/boot locked (read-only)"
+    ;;
+  unlock)
+    require_root
+    mount -o remount,rw "$BOOT_MOUNT"
+    echo "/boot unlocked (read-write)"
+    ;;
+  status)
+    echo "/boot mount status: $(status)"
+    ;;
+  *)
+    echo "Usage: sudo boot-protect {lock|unlock|status}"
+    exit 1
+    ;;
+esac
